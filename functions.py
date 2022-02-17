@@ -1,11 +1,10 @@
 import streamlit as st
-from PIL import Image
 import requests
 import pandas as pd
-import numpy as np
+# import numpy as np
 
 #---------------------- FUNCTIONS ----------------------#
-
+@st.cache # store the dataframe in cache for faster results
 def fear_greed():
     # fetch data from api
     fear_greed_data = requests.get(f"https://api.alternative.me/fng/?limit=2000").json()
@@ -27,7 +26,7 @@ def fear_greed():
 
     return fear_greed_df
 
-
+@st.cache # store the dataframe in cache for faster results
 def kucoin_price(asset_ticker):
     
     # make asset ticker uppercase to be compatible with api

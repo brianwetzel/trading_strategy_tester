@@ -1,14 +1,9 @@
 import streamlit as st
 from PIL import Image
-import requests
 import pandas as pd
-import numpy as np
 from functions import fear_greed, kucoin_price
-# import plotly.express as px
 from plotly.subplots import make_subplots
 import plotly.graph_objects as go
-from datetime import datetime, timedelta
-
 
 #---------------------- API NOTES ----------------------#
 
@@ -21,13 +16,12 @@ st.set_page_config(layout="wide", page_icon="📈")
 
 #---------------------- TITLE & DESCRIPTION ----------------------#
 
-st.title("Trading Strategy Simulator (beta)")
-st.write('Use this app to explore various combinations of indicators and their parameters to find a profitable trading strategy.')
-# st.write("You'll start with $100,000.")
+st.markdown("## Trading Strategy Simulator (beta)")
+st.write("""Use this app to explore various combinations of indicators and their parameters to find a profitable trading strategy.  Then compare your result to a simply buy & hold strategy.  We'll start you off with $100,000.  Try not to blow it! 💰 """)
 
 #---------------------- DATA ----------------------#
 
-strategy_list = ["-", "Fear & Greed Index", "RSI - Relative Strength Index (not setup)", "Mac D", "Candle Stick Pattern"]
+strategy_list = ["- Pick a strategy -", "Fear & Greed Index", "RSI - Relative Strength Index", "Mac D", "Candle Stick Pattern"]
 fg_df = fear_greed()
 
 #---------------------- SIDEBAR ----------------------#
@@ -48,29 +42,34 @@ with s1:
     start_date = st.date_input("Start Date", value = df.at[0, 'date'], min_value = df.at[0, 'date'], max_value = df.at[(df.date.count()-1), 'date'])
 with s2:
     end_date = st.date_input("End Date", value = df.at[(df.date.count()-1), 'date'], min_value = df.at[0, 'date'], max_value = df.at[(df.date.count()-1), 'date'])
+st.sidebar.write("________")
 
-# convert dates to from datetime to strings
-start_date = str(start_date)
-end_date = str(end_date)
-# new df for charting that displays based on the start date and end date selected
-df = df.loc[(df['date'] >= start_date) & (df['date'] <= end_date)]
+# st.sidebar.select_slider("test a different type", options=[start_date, end_date])
+
+
+start_date = str(start_date) # convert dates to from datetime to strings
+end_date = str(end_date) # convert dates to from datetime to strings
+df = df.loc[(df['date'] >= start_date) & (df['date'] <= end_date)] # Our dataframe gets updated based on the start_date and end_date selected
 
 
 
 # BUY STRATEGY
 buy_strategy = st.sidebar.selectbox("Buy Strategy", strategy_list, index = 0)
-if buy_strategy == "-":
-    st.sidebar.write('Pick a strategy')
+if buy_strategy == "- Pick a strategy -":
+    st.sidebar.write('')
 elif buy_strategy == "Fear & Greed Index":
-    s1, s2, s3 = st.sidebar.columns((1,1,1))
-    with s1:
+    c1, c2, c3 = st.sidebar.columns((1,1,1))
+    with c1:
         st.slider("F&G Index: Threshold to Buy ", 0, 40, value=10)
-    with s2:
+    with c2:
         st.slider("Window of days below threshold", 1, 90, value=20)
-    with s3:
+    with c3:
         st.slider("% days of window below Threshold", 1, 100, value=75, step=5)
 else:
     st.sidebar.write('This strategy is not setup yet')
+
+# buy_overlay = st.sidebar.checkbox("View Buy Strategy on Chart", value=False)
+
 st.sidebar.write("________")
 
 
@@ -78,8 +77,8 @@ st.sidebar.write("________")
 
 # Sell Strategy
 sell_strategy = st.sidebar.selectbox("Sell Strategy", strategy_list, index=0)
-if sell_strategy == "-":
-    st.sidebar.write('Pick a strategy')
+if sell_strategy == "- Pick a strategy -":
+    st.sidebar.write('')
 elif sell_strategy == "Fear & Greed Index":
     s1, s2, s3 = st.sidebar.columns((1,1,1))
     with s1:
@@ -92,15 +91,56 @@ else:
     st.sidebar.write('This strategy is not setup yet')
 st.sidebar.write("________")
 
+overlay_options = ["None", "Buy Strategy", "Sell Strategy"]
+overlay = st.sidebar.selectbox("Chart Overlay", overlay_options, index=0)
+
+
 # Testing
 # st.info("This tool allows you to test your trading strategies against historical data")
 # st.success('This is a success message!')
 # st.error('This is an error')
 # st.warning('This is a warning')
 
+#---------------------- CALCULATIONS ----------------------#
+
+
+
+
 #---------------------- BODY ----------------------#
 
+
+# Results
+
+st.markdown("_______")
+
+h1, s1, c1, s2, c2, = st.columns((4,1,3,1,3))
+
+with h1:
+    st.markdown("### Your Strategy")
+    st.write("this whole results section is a placeholder")
+
+with c1:
+    st.metric(label="Account Balance", value="$125,000", delta="$25,000") # Your Strategy
+with c2:
+    st.metric(label="Return (%)", value="25%", delta="Gain")  # Your Strategy
+
+
+st.markdown("_______")
+
+h1, s1, c1, s2, c2 = st.columns((4,1,3,1,3))
+
+with h1:
+    st.markdown("### Buy & Hold")
+with c1:
+    st.metric(label="Account Balance", value="$99,000", delta="-$1,000") # Your Strategy
+with c2:
+    st.metric(label="Return (%)", value="-1%", delta="-Loss")  # Your Strategy
+
+
+st.markdown("_______")
+
 # CHART
+# st.markdown(f"### {asset} Chart")
 
 # PLOTS TWO LINES
 fig = make_subplots(specs=[[{"secondary_y": True}]])
@@ -111,55 +151,31 @@ fig.add_trace(go.Scatter(x= df['date'], y= df[f'{asset} Price'], name=f"{asset} 
 fig.update_xaxes(showgrid=True, gridwidth=.1, gridcolor='#252526')
 fig.update_yaxes(showgrid=True, gridwidth=.1, gridcolor='#252526')
 fig.update_layout(yaxis1=dict(type='log'), yaxis1_title = f"{asset} Price (log)", showlegend=False)
-# fig.update_layout(yaxis2=dict, yaxis2_title = "Fear & Greed Index")
 
 # ADD F&G LINE
-if buy_strategy == "Fear & Greed Index":
+if buy_strategy == "Fear & Greed Index" or sell_strategy == "Fear & Greed Index":
     # F&G Line
     fig.add_trace(go.Scatter(x= df['date'], y= df['F&G index'], name='Fear & Greed Index', line=dict (color='#A8B2BF', width=1)), secondary_y=True)
     # F&G Bands (extreme fear, extreme greed)
     fig.add_hrect(y0=0, y1=25, line_width=0, fillcolor="#0072c4", opacity=0.1, secondary_y=True)
     fig.add_hrect(y0=75, y1=100, line_width=0, fillcolor="#49068f", opacity=0.1, secondary_y=True)
+    fig.update_layout(yaxis2=dict(type="linear"), yaxis2_title = f"Fear & Greed Index", showlegend=False)
 
 # Global parameters to the entire chart
-fig.update_layout(autotypenumbers='convert types', template="plotly_dark", paper_bgcolor='#0e1117', plot_bgcolor='#181a1b', xaxis_title='Date',)  # yaxis_title=f'{asset} Price (log)', height = 700
-# fig.update_layout(title='Fear & Greed Indext (Buy / Sell Indicator)')
+fig.update_layout(autotypenumbers='convert types', template="plotly_dark", paper_bgcolor='#0e1117', plot_bgcolor='#181a1b', xaxis_title='Date')  # yaxis_title=f'{asset} Price (log)', height = 700
+fig.update_layout(title=f'{asset} Price Chart • Buy & Sell Strategies Overlay')
 fig.update_layout(xaxis=dict(rangeselector=dict(), rangeslider=dict(visible=True), type="date"))
 
 # PLOT IT!!
 st.plotly_chart(fig, use_container_width=True)
 
+st.markdown("_______")
 
-# Results
-c1, c2, c3, c4, c5 = st.columns((2,1,2,1,2))
-with c1:
-    st.markdown("### Your Results")
-with c2:
-    st.markdown("### -")
-with c3:
-    st.markdown("### Buy & Hold")
-with c4:
-    st.markdown("### = ")
-with c5:
-    st.markdown("### Winner")
-
-
-with c1:
-    st.metric(label="Account Balance", value="$125,000", delta="$25,000")
-    st.metric(label="Return (%)", value="25%", delta="Gain")
-    st.metric(label="Sharpe Ratio", value=".6", delta="Not bad")
-with c3:
-    st.metric(label="Account Balance", value="$115,000", delta="$15,000")
-    st.metric(label="Return (%)", value="15%", delta="Gain")
-    st.metric(label="Sharpe Ratio", value="1.1", delta="Risky Business")
-with c5:
-    st.metric(label="Your Return vs Buy & Hold", value="$10,000", delta="$25,000")
-    st.metric(label="You Won", value="10%", delta="Gain")
-    st.metric(label="Sharpe Ratio", value="Risky", delta="Risky Business")
+st.write("View the code on [GitHub](https://github.com/brianwetzel/trading_strategy_tester)")  # Text with a url embedded
 
 
 
-
+# DATAFRAME
 
 # FORM (TEST)
 # with c1:
