@@ -10,34 +10,29 @@ import plotly.graph_objects as go
 from datetime import datetime, timedelta
 
 
-#---------------------- PAGE LAYOUT ----------------------#
+#---------------------- API NOTES ----------------------#
+
+# fear_greed(): does not take any arguments.  It returns a pandas dataframe for all time available.
+# kucoin_price(ticker): takes the argument ticker symbol.  It returns a pandas dataframe of all time available.
+
+#---------------------- PAGE CONFIG ----------------------#
 # must be first
 st.set_page_config(layout="wide", page_icon="📈")
 
-#---------------------- API INFO ----------------------#
+#---------------------- TITLE & DESCRIPTION ----------------------#
 
-# fear_greed(): does not take any arguments, returns a pandas dataframe of all time
-# kucoin_price(ticker): takes the argument ticker symbol, returns a pandas dataframe of all time
+st.title("Trading Strategy Simulator (beta)")
+st.write('Use this app to explore various combinations of indicators and their parameters to find a profitable trading strategy.')
+# st.write("You'll start with $100,000.")
 
 #---------------------- DATA ----------------------#
-strategy_list = ["Fear & Greed Index", "RSI - Relative Strength Index", "Mac D", "Candle Stick Pattern"]
+
+strategy_list = ["-", "Fear & Greed Index", "RSI - Relative Strength Index (not setup)", "Mac D", "Candle Stick Pattern"]
 fg_df = fear_greed()
-
-
-
-# with st.expander("See explanation"):
-#     st.write("""
-#         The chart above shows some numbers I picked for you.
-#         I rolled actual dice for these, so they're *guaranteed* to
-#         be random.""")
-
 
 #---------------------- SIDEBAR ----------------------#
 
-# Sidebar Title
-# st.sidebar.markdown('## Select an Asset, Timeframe, and Strategy below')
-
-# Asset
+# ASSET
 asset_list = ["btc", "eth", "avax", "sol", "shib", "ftm", "near"]
 asset = st.sidebar.selectbox("Asset", asset_list).upper()
 
@@ -63,29 +58,39 @@ df = df.loc[(df['date'] >= start_date) & (df['date'] <= end_date)]
 
 
 # BUY STRATEGY
-st.sidebar.selectbox("Buy Strategy", strategy_list)
-s1, s2 = st.sidebar.columns((1,1))
-with s1:
-    st.slider("Window in Days in Extreme Fear", 1, 30, value=10)
-with s2:
-    st.slider("% of Days in Extreme Fear", 1, 100, value=75, step=5)
+buy_strategy = st.sidebar.selectbox("Buy Strategy", strategy_list, index = 0)
+if buy_strategy == "-":
+    st.sidebar.write('Pick a strategy')
+elif buy_strategy == "Fear & Greed Index":
+    s1, s2, s3 = st.sidebar.columns((1,1,1))
+    with s1:
+        st.slider("F&G Index: Threshold to Buy ", 0, 40, value=10)
+    with s2:
+        st.slider("Window of days below threshold", 1, 90, value=20)
+    with s3:
+        st.slider("% days of window below Threshold", 1, 100, value=75, step=5)
+else:
+    st.sidebar.write('This strategy is not setup yet')
+st.sidebar.write("________")
+
 
 
 
 # Sell Strategy
-st.sidebar.selectbox("Sell Strategy", strategy_list)
-s1, s2 = st.sidebar.columns((1,1))
-with s1:
-    st.slider("Window in Days in Extreme Greed", 1, 30, value=10)
-with s2:
-    st.slider("% of Days in Extreme Greed", 1, 100, value=75, step=5)
-
-
-
-#---------------------- TITLE ----------------------#
-
-left, center, right = st.columns((1, 3, 1))
-center.title("Trading Strategy Simulator (beta)")
+sell_strategy = st.sidebar.selectbox("Sell Strategy", strategy_list, index=0)
+if sell_strategy == "-":
+    st.sidebar.write('Pick a strategy')
+elif sell_strategy == "Fear & Greed Index":
+    s1, s2, s3 = st.sidebar.columns((1,1,1))
+    with s1:
+        st.slider("F&G Index: Threshold to Sell ", 0, 100, value=10)
+    with s2:
+        st.slider("Window of days above threshold", 1, 90, value=20)
+    with s3:
+        st.slider("% days of window above Threshold", 1, 100, value=75, step=5)
+else:
+    st.sidebar.write('This strategy is not setup yet')
+st.sidebar.write("________")
 
 # Testing
 # st.info("This tool allows you to test your trading strategies against historical data")
@@ -95,54 +100,76 @@ center.title("Trading Strategy Simulator (beta)")
 
 #---------------------- BODY ----------------------#
 
-# Columns Layout for Data
-c1, c2, c3 = st.columns((3  , 1, 20))
+# CHART
+
+# PLOTS TWO LINES
+fig = make_subplots(specs=[[{"secondary_y": True}]])
+
+# ADD ASSET LINE
+fig.add_trace(go.Scatter(x= df['date'], y= df[f'{asset} Price'], name=f"{asset} Price", line=dict  (color='#188FD9', width=1)), secondary_y=False)
+# change grid
+fig.update_xaxes(showgrid=True, gridwidth=.1, gridcolor='#252526')
+fig.update_yaxes(showgrid=True, gridwidth=.1, gridcolor='#252526')
+fig.update_layout(yaxis1=dict(type='log'), yaxis1_title = f"{asset} Price (log)", showlegend=False)
+# fig.update_layout(yaxis2=dict, yaxis2_title = "Fear & Greed Index")
+
+# ADD F&G LINE
+if buy_strategy == "Fear & Greed Index":
+    # F&G Line
+    fig.add_trace(go.Scatter(x= df['date'], y= df['F&G index'], name='Fear & Greed Index', line=dict (color='#A8B2BF', width=1)), secondary_y=True)
+    # F&G Bands (extreme fear, extreme greed)
+    fig.add_hrect(y0=0, y1=25, line_width=0, fillcolor="#0072c4", opacity=0.1, secondary_y=True)
+    fig.add_hrect(y0=75, y1=100, line_width=0, fillcolor="#49068f", opacity=0.1, secondary_y=True)
+
+# Global parameters to the entire chart
+fig.update_layout(autotypenumbers='convert types', template="plotly_dark", paper_bgcolor='#0e1117', plot_bgcolor='#181a1b', xaxis_title='Date',)  # yaxis_title=f'{asset} Price (log)', height = 700
+# fig.update_layout(title='Fear & Greed Indext (Buy / Sell Indicator)')
+fig.update_layout(xaxis=dict(rangeselector=dict(), rangeslider=dict(visible=True), type="date"))
+
+# PLOT IT!!
+st.plotly_chart(fig, use_container_width=True)
+
 
 # Results
+c1, c2, c3, c4, c5 = st.columns((2,1,2,1,2))
 with c1:
-    st.markdown("## Results")
-    st.metric(label="Buy Signal", value="35%", delta="1.2 °F")
-    st.metric(label="Sell Signal", value="15%", delta="1.2 °F")
-    st.metric(label="Your Return", value="25%", delta="1.2 °F")
-
-
-# Fear And Greed Chart
+    st.markdown("### Your Results")
+with c2:
+    st.markdown("### -")
 with c3:
-
-    # PLOTS TWO LINES
-    fig = make_subplots(specs=[[{"secondary_y": True}]])
-    
-    # ADD ASSET LINE
-    fig.add_trace(go.Scatter(x= df['date'], y= df[f'{asset} Price'], name=f"{asset} Price", line=dict  (color='#188FD9', width=1)), secondary_y=True)
-    # ADD F&G LINE
-    fig.add_trace(go.Scatter(x= df['date'], y= df['F&G index'], name='Fear & Greed Index', line=dict (color='#A8B2BF', width=1)), secondary_y=False)
-    
-    # ADD COLOR BAND
-    # extreme fear range
-    fig.add_hrect(y0=0, y1=25, line_width=0, fillcolor="#AA554E", opacity=0.1)
-    # extreme greed range
-    fig.add_hrect(y0=75, y1=100, line_width=0, fillcolor="#1FC0A9", opacity=0.1)
-    # change grid
-    fig.update_xaxes(showgrid=False, gridwidth=.1, gridcolor='#A8B2BF')
-    fig.update_yaxes(showgrid=False, gridwidth=.1, gridcolor='#A8B2BF')
-    fig.update_layout(yaxis2=dict(type='log'), showlegend=False)
-    # Global parameters to the entire chart
-    fig.update_layout(autotypenumbers='convert types', template="plotly_dark", paper_bgcolor='#0e1117', plot_bgcolor='#0e1117', title='Fear & Greed Indext (Buy / Sell Indicator)',xaxis_title='Date',yaxis_title='Fear & Greed Index', height = 700)
-    
-    fig.update_layout(xaxis=dict(rangeselector=dict(), rangeslider=dict(visible=True), type="date"))
-
-    # PLOT IT!!
-    st.plotly_chart(fig, use_container_width=True)
+    st.markdown("### Buy & Hold")
+with c4:
+    st.markdown("### = ")
+with c5:
+    st.markdown("### Winner")
 
 
-    # with c1:
-#    st.markdown("## Buy Sell Strategy")
-#    with st.form("my_form"):
-#        buy_strategy = st.selectbox("Buys Strategy", strategy_list)
-#        slider_val_1 = st.slider("Form slider")
-#        sell_strategy = st.selectbox("Sell Strategy", strategy_list)
-#        slider_val_2 = st.slider("Form slider 2")
-#        # Every form must have a submit button.
-#        submitted = st.form_submit_button("Submit")
-#        if submitted:
-#            slider_input = st.write("slider", slider_val_1, "another slider", slider_val_2)
+with c1:
+    st.metric(label="Account Balance", value="$125,000", delta="$25,000")
+    st.metric(label="Return (%)", value="25%", delta="Gain")
+    st.metric(label="Sharpe Ratio", value=".6", delta="Not bad")
+with c3:
+    st.metric(label="Account Balance", value="$115,000", delta="$15,000")
+    st.metric(label="Return (%)", value="15%", delta="Gain")
+    st.metric(label="Sharpe Ratio", value="1.1", delta="Risky Business")
+with c5:
+    st.metric(label="Your Return vs Buy & Hold", value="$10,000", delta="$25,000")
+    st.metric(label="You Won", value="10%", delta="Gain")
+    st.metric(label="Sharpe Ratio", value="Risky", delta="Risky Business")
+
+
+
+
+
+# FORM (TEST)
+# with c1:
+#     st.markdown("## Buy Sell Strategy")
+#     with st.form("my_form"):
+#         buy_strategy = st.selectbox("Buys Strategy", strategy_list)
+#         slider_val_1 = st.slider("Form slider")
+#         sell_strategy = st.selectbox("Sell Strategy", strategy_list)
+#         slider_val_2 = st.slider("Form slider 2")
+#         # Every form must have a submit button.
+#         submitted = st.form_submit_button("Submit")
+#         if submitted:
+#             slider_input = st.write("slider", slider_val_1, "another slider", slider_val_2)
