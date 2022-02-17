@@ -1,5 +1,4 @@
 import streamlit as st
-from PIL import Image
 import pandas as pd
 from functions import fear_greed, kucoin_price
 from plotly.subplots import make_subplots
